@@ -28,7 +28,10 @@ function loadStatesGrid() {
     grid.innerHTML = '';
     
     chrome.storage.sync.get(['allowedStates'], (result) => {
-        const allowed = result.allowedStates || Object.keys(ESTADOS_MX);
+        if (chrome.runtime.lastError) {
+            console.warn('Load states failed:', chrome.runtime.lastError);
+        }
+        const allowed = Array.isArray(result.allowedStates) ? result.allowedStates : Object.keys(ESTADOS_MX);
         
         Object.keys(ESTADOS_MX).forEach(state => {
             const btn = document.createElement('button');
@@ -49,10 +52,13 @@ function loadStatesGrid() {
 
 // Save filters
 document.getElementById('save-filter').addEventListener('click', () => {
-    const keywords = document.getElementById('keywords-input').value.split(',').map(k => k.trim().toLowerCase());
+    const keywords = document.getElementById('keywords-input').value
+        .split(',')
+        .map(k => k.trim().toLowerCase())
+        .filter(Boolean);
     const verifiedOnly = document.getElementById('verified-only').checked;
-    const minLikes = parseInt(document.getElementById('min-likes').value) || 0;
-    const minRetweets = parseInt(document.getElementById('min-retweets').value) || 0;
+    const minLikes = parseInt(document.getElementById('min-likes').value, 10) || 0;
+    const minRetweets = parseInt(document.getElementById('min-retweets').value, 10) || 0;
     
     chrome.storage.sync.set({
         keywords,
@@ -67,7 +73,11 @@ document.getElementById('save-filter').addEventListener('click', () => {
 // Load settings
 function loadSettings() {
     chrome.storage.sync.get(['keywords', 'verifiedOnly', 'minLikes', 'minRetweets', 'autoBlock', 'showHighlights', 'notifyBlocked', 'retention'], (result) => {
-        if (result.keywords) document.getElementById('keywords-input').value = result.keywords.join(', ');
+        if (chrome.runtime.lastError) {
+            console.warn('Storage load failed:', chrome.runtime.lastError);
+            return;
+        }
+        if (Array.isArray(result.keywords)) document.getElementById('keywords-input').value = result.keywords.join(', ');
         if (result.verifiedOnly !== undefined) document.getElementById('verified-only').checked = result.verifiedOnly;
         if (result.minLikes !== undefined) document.getElementById('min-likes').value = result.minLikes;
         if (result.minRetweets !== undefined) document.getElementById('min-retweets').value = result.minRetweets;
@@ -93,25 +103,36 @@ document.getElementById('save-settings').addEventListener('click', () => {
 // Detector tab
 document.getElementById('refresh-detector').addEventListener('click', () => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (!tabs || tabs.length === 0) {
+            document.getElementById('account-info').textContent = 'No hay pestaña activa disponible';
+            return;
+        }
         chrome.tabs.sendMessage(tabs[0].id, { action: 'detectAccount' }, (response) => {
-            if (response) {
-                document.getElementById('account-info').innerHTML = `
-                    <p><strong>Usuario:</strong> ${response.account?.username || 'No detectado'}</p>
-                    <p><strong>Verificado:</strong> ${response.account?.verified ? '✓' : '✗'}</p>
-                    <p><strong>Seguidores:</strong> ${response.account?.followers || 'N/A'}</p>
-                `;
-                
-                document.getElementById('location-status').innerHTML = `
-                    <p><strong>Ubicación estimada:</strong> ${response.location?.state || 'Desconocida'}</p>
-                    <p><strong>Confianza:</strong> ${response.location?.confidence || 'N/A'}%</p>
-                `;
-                
-                document.getElementById('device-status').innerHTML = `
-                    <p><strong>Sistema:</strong> ${response.device?.os || 'N/A'}</p>
-                    <p><strong>Navegador:</strong> ${response.device?.browser || 'Chrome'}</p>
-                    <p><strong>Idioma:</strong> ${response.device?.language || 'es-MX'}</p>
-                `;
+            if (chrome.runtime.lastError) {
+                console.warn('Message error:', chrome.runtime.lastError);
+                document.getElementById('account-info').textContent = 'No se pudo detectar la cuenta';
+                return;
             }
+            if (!response) {
+                document.getElementById('account-info').textContent = 'No hay respuesta del contenido';
+                return;
+            }
+            document.getElementById('account-info').innerHTML = `
+                <p><strong>Usuario:</strong> ${response.account?.username || 'No detectado'}</p>
+                <p><strong>Verificado:</strong> ${response.account?.verified ? '✓' : '✗'}</p>
+                <p><strong>Seguidores:</strong> ${response.account?.followers || 'N/A'}</p>
+            `;
+            
+            document.getElementById('location-status').innerHTML = `
+                <p><strong>Ubicación estimada:</strong> ${response.location?.state || 'Desconocida'}</p>
+                <p><strong>Confianza:</strong> ${response.location?.confidence || 'N/A'}%</p>
+            `;
+            
+            document.getElementById('device-status').innerHTML = `
+                <p><strong>Sistema:</strong> ${response.device?.os || 'N/A'}</p>
+                <p><strong>Navegador:</strong> ${response.device?.browser || 'Chrome'}</p>
+                <p><strong>Idioma:</strong> ${response.device?.language || 'es-MX'}</p>
+            `;
         });
     });
 });
@@ -127,8 +148,10 @@ document.getElementById('export-stats').addEventListener('click', () => {
 // Clear stats
 document.getElementById('clear-stats').addEventListener('click', () => {
     if (confirm('¿Eliminar todas las estadísticas?')) {
-        chrome.storage.local.set({ tweetStats: {} });
-        alert('✓ Estadísticas eliminadas');
+        chrome.storage.local.set({ tweetStats: {} }, () => {
+            alert('✓ Estadísticas eliminadas');
+            loadStats();
+        });
     }
 });
 
@@ -146,9 +169,14 @@ document.getElementById('import-config').addEventListener('change', (e) => {
         try {
             const config = JSON.parse(evt.target.result);
             chrome.storage.sync.set(config, () => {
+                if (chrome.runtime.lastError) {
+                    console.warn('Import failed:', chrome.runtime.lastError);
+                    return alert('No se pudo importar la configuración');
+                }
                 alert('✓ Configuración importada');
                 loadSettings();
                 loadStatesGrid();
+                e.target.value = '';
             });
         } catch (err) {
             alert('Error: Archivo JSON inválido');
@@ -159,6 +187,10 @@ document.getElementById('import-config').addEventListener('change', (e) => {
 
 document.getElementById('export-config').addEventListener('click', () => {
     chrome.storage.sync.get(null, (items) => {
+        if (chrome.runtime.lastError) {
+            console.warn('Export config failed:', chrome.runtime.lastError);
+            return alert('No se pudo exportar la configuración');
+        }
         const data = JSON.stringify(items, null, 2);
         downloadFile(data, 'config.json');
     });
