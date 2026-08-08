@@ -131,7 +131,7 @@ function scanTweets() {
 }
 
 function updateStats() {
-    chrome.storage.local.set({ tweetStats: stats });
+    chrome.storage.local.set({ tweetStats: { ...stats, timestamp: Date.now() } });
 }
 
 function startScanning() {

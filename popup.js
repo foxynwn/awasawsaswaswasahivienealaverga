@@ -148,8 +148,10 @@ document.getElementById('export-stats').addEventListener('click', () => {
 // Clear stats
 document.getElementById('clear-stats').addEventListener('click', () => {
     if (confirm('¿Eliminar todas las estadísticas?')) {
-        chrome.storage.local.set({ tweetStats: {} });
-        alert('✓ Estadísticas eliminadas');
+        chrome.storage.local.set({ tweetStats: {} }, () => {
+            alert('✓ Estadísticas eliminadas');
+            loadStats();
+        });
     }
 });
 
