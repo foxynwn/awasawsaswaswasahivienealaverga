@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mexico States Scraper</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f0f0f; color: #e0e0e0; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { margin-bottom: 20px; color: #00d4ff; }
+        .control-panel {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        .row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+        select, input, button {
+            padding: 10px 15px;
+            border: 1px solid #444;
+            background: #222;
+            color: #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button {
+            background: #00d4ff;
+            color: #000;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        button:hover { background: #00a8cc; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .tweet-card {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #00d4ff;
+        }
+        .tweet-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .username { font-weight: bold; color: #00d4ff; }
+        .verified { color: #1da1f2; font-weight: bold; }
+        .tweet-text { margin: 10px 0; line-height: 1.4; }
+        .engagement { font-size: 12px; color: #888; }
+        .loading { text-align: center; color: #00d4ff; }
+        .status { 
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1a1a1a;
+            padding: 15px 20px;
+            border-radius: 4px;
+            border: 1px solid #00d4ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Mexico States Real-Time Scraper</h1>
+        
+        <div class="control-panel">
+            <div class="row">
+                <select id="estado">
+                    <option value="">-- Seleccionar Estado --</option>
+                </select>
+                <input type="text" id="keywords" placeholder="Palabras clave (ej: política, protesta)">
+                <label>
+                    <input type="checkbox" id="verified"> Solo verificados
+                </label>
+                <input type="number" id="minEngagement" placeholder="Engagement mín" min="0" value="0">
+            </div>
+            <div class="row">
+                <button onclick="scrapeSingle()">Scrape Estado</button>
+                <button onclick="scrapeAll()">Scrape Todos</button>
+                <button onclick="getCache()">Ver Cache (24h)</button>
+            </div>
+        </div>
+        
+        <div id="results" class="results"></div>
+        <div id="status" class="status" style="display:none;"></div>
+    </div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        
+        ws.onopen = () => console.log("✅ Conectado");
+        
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            
+            if (msg.type === "scrape_result" || msg.type === "all_results") {
+                displayResults(msg.data);
+            } else if (msg.type === "cache") {
+                displayCache(msg.data);
+            }
+            
+            hideStatus();
+        };
+        
+        ws.onerror = () => showStatus("❌ WebSocket error", "red");
+        
+        async function init() {
+            const res = await fetch("/estados");
+            const data = await res.json();
+            const select = document.getElementById("estado");
+            data.estados.forEach(e => {
+                select.innerHTML += `<option value="${e}">${e}</option>`;
+            });
+        }
+        
+        function scrapeSingle() {
+            const estado = document.getElementById("estado").value;
+            if (!estado) return alert("Selecciona un estado");
+            
+            const keywords = document.getElementById("keywords").value.split(",").filter(k => k.trim());
+            const verified_only = document.getElementById("verified").checked;
+            const min_engagement = parseInt(document.getElementById("minEngagement").value) || 0;
+            
+            showStatus("🔄 Scrapeando...");
+            ws.send(JSON.stringify({
+                action: "scrape",
+                estado,
+                keywords,
+                verified_only,
+                min_engagement
+            }));
+        }
+        
+        function scrapeAll() {
+            const keywords = document.getElementById("keywords").value.split(",").filter(k => k.trim());
+            const verified_only = document.getElementById("verified").checked;
+            
+            showStatus("🔄 Scrapeando todos los estados...");
+            ws.send(JSON.stringify({
+                action: "scrape_all",
+                keywords,
+                verified_only
+            }));
+        }
+        
+        function getCache() {
+            const estado = document.getElementById("estado").value || null;
+            showStatus("📚 Cargando cache...");
+            ws.send(JSON.stringify({
+                action: "get_cache",
+                estado,
+                limit: 100
+            }));
+        }
+        
+        function displayResults(data) {
+            const container = document.getElementById("results");
+            container.innerHTML = "";
+            
+            if (Array.isArray(data)) {
+                data.forEach(item => {
+                    if (item.tweets) {
+                        item.tweets.forEach(tweet => renderTweet(tweet, item.estado));
+                    }
+                });
+            } else if (data.tweets) {
+                data.tweets.forEach(tweet => renderTweet(tweet, data.estado));
+            }
+        }
+        
+        function displayCache(tweets) {
+            const container = document.getElementById("results");
+            container.innerHTML = "";
+            tweets.forEach(t => {
+                const card = document.createElement("div");
+                card.className = "tweet-card";
+                card.innerHTML = `
+                    <div class="tweet-header">
+                        <span class="username">@${t.username}</span>
+                        ${t.author_verified ? '<span class="verified">✓</span>' : ''}
+                    </div>
+                    <div class="tweet-text">${t.text}</div>
+                    <div class="engagement">
+                        ❤️ ${t.likes} | 🔄 ${t.retweets} | 💬 ${t.replies}
+                    </div>
+                    <div style="font-size:11px; margin-top:5px; color:#666;">
+                        Estado: ${t.estado}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+        
+        function renderTweet(tweet, estado) {
+            const container = document.getElementById("results");
+            const card = document.createElement("div");
+            card.className = "tweet-card";
+            card.innerHTML = `
+                <div class="tweet-header">
+                    <span class="username">@${tweet.username}</span>
+                    ${tweet.verified ? '<span class="verified">✓</span>' : ''}
+                </div>
+                <div class="tweet-text">${tweet.text}</div>
+                <div class="engagement">
+                    ❤️ ${tweet.likes} | 🔄 ${tweet.retweets} | 💬 ${tweet.engagement - tweet.likes - tweet.retweets}
+                </div>
+                <div style="font-size:11px; margin-top:5px; color:#666;">
+                    Estado: ${estado}
+                </div>
+            `;
+            container.appendChild(card);
+        }
+        
+        function showStatus(msg, color = "#00d4ff") {
+            const status = document.getElementById("status");
+            status.textContent = msg;
+            status.style.borderColor = color;
+            status.style.display = "block";
+        }
+        
+        function hideStatus() {
+            document.getElementById("status").style.display = "none";
+        }
+        
+        init();
+    </script>
+</body>
+</html>
