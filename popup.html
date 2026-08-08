@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X Region Blocker MX</title>
     <link rel="stylesheet" href="popup.css">
+    <style>
+        /* moved inline styles from elements */
+        .hidden-file-input { display: none; }
+        .full-width { width: 100%; }
+        .mt-4 { margin-top: 4px; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -128,18 +134,18 @@
             </div>
 
             <div class="section">
-                <label class="label">Retención de datos (horas):</label>
-                <input type="number" id="retention" value="24" min="1" max="168">
+                <label for="retention" class="label">Retención de datos (horas):</label>
+                <input type="number" id="retention" name="retention" value="24" min="1" max="168" title="Retención de datos en horas" placeholder="Horas">
             </div>
 
             <div class="section">
                 <h3>💾 Importar/Exportar</h3>
-                <input type="file" id="import-config" accept=".json" style="display: none;">
-                <button id="import-btn" class="btn btn-secondary" style="width: 100%;">📤 Importar Configuración</button>
-                <button id="export-config" class="btn btn-secondary" style="width: 100%; margin-top: 4px;">📥 Exportar Configuración</button>
+                <input type="file" id="import-config" accept=".json" class="hidden-file-input">
+                <button type="button" id="import-btn" class="btn btn-secondary full-width">📤 Importar Configuración</button>
+                <button type="button" id="export-config" class="btn btn-secondary full-width mt-4">📥 Exportar Configuración</button>
             </div>
 
-            <button id="save-settings" class="btn btn-primary" style="margin-top: 12px;">💾 Guardar Ajustes</button>
+            <button type="button" id="save-settings" class="btn btn-primary" style="margin-top: 12px;">💾 Guardar Ajustes</button>
         </div>
     </div>
 

@@ -68,7 +68,7 @@
         
         <div class="control-panel">
             <div class="row">
-                <select id="estado">
+                <select id="estado" aria-label="Seleccionar estado" title="Seleccionar estado">
                     <option value="">-- Seleccionar Estado --</option>
                 </select>
                 <input type="text" id="keywords" placeholder="Palabras clave (ej: política, protesta)">
@@ -89,40 +89,61 @@
     </div>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
         
-        ws.onopen = () => console.log("✅ Conectado");
+        ws.onopen = () => showStatus('✅ Conectado', '#00d4ff');
         
         ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
+            let msg;
+            try {
+                msg = JSON.parse(event.data);
+            } catch (err) {
+                console.error('Invalid websocket message:', err, event.data);
+                return;
+            }
             
             if (msg.type === "scrape_result" || msg.type === "all_results") {
                 displayResults(msg.data);
             } else if (msg.type === "cache") {
                 displayCache(msg.data);
+            } else if (msg.type === 'error') {
+                showStatus(msg.message || '⚠️ Error en servidor', 'red');
+                return;
             }
             
             hideStatus();
         };
         
         ws.onerror = () => showStatus("❌ WebSocket error", "red");
+        ws.onclose = () => showStatus('🔌 Conexión cerrada', 'orange');
         
         async function init() {
-            const res = await fetch("/estados");
-            const data = await res.json();
-            const select = document.getElementById("estado");
-            data.estados.forEach(e => {
-                select.innerHTML += `<option value="${e}">${e}</option>`;
-            });
+            try {
+                const res = await fetch("/estados");
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const select = document.getElementById("estado");
+                data.estados.forEach(e => {
+                    select.innerHTML += `<option value="${e}">${e}</option>`;
+                });
+            } catch (err) {
+                console.error('Error cargando estados:', err);
+                showStatus('⚠️ No se pudieron cargar los estados', 'red');
+            }
         }
         
         function scrapeSingle() {
             const estado = document.getElementById("estado").value;
             if (!estado) return alert("Selecciona un estado");
             
-            const keywords = document.getElementById("keywords").value.split(",").filter(k => k.trim());
+            const keywords = document.getElementById("keywords").value.split(",").map(k => k.trim()).filter(Boolean);
             const verified_only = document.getElementById("verified").checked;
             const min_engagement = parseInt(document.getElementById("minEngagement").value) || 0;
+            
+            if (ws.readyState !== WebSocket.OPEN) {
+                return showStatus('⚠️ Conexión WS no disponible', 'red');
+            }
             
             showStatus("🔄 Scrapeando...");
             ws.send(JSON.stringify({
@@ -135,8 +156,12 @@
         }
         
         function scrapeAll() {
-            const keywords = document.getElementById("keywords").value.split(",").filter(k => k.trim());
+            const keywords = document.getElementById("keywords").value.split(",").map(k => k.trim()).filter(Boolean);
             const verified_only = document.getElementById("verified").checked;
+            
+            if (ws.readyState !== WebSocket.OPEN) {
+                return showStatus('⚠️ Conexión WS no disponible', 'red');
+            }
             
             showStatus("🔄 Scrapeando todos los estados...");
             ws.send(JSON.stringify({
@@ -177,17 +202,21 @@
             tweets.forEach(t => {
                 const card = document.createElement("div");
                 card.className = "tweet-card";
+                const verified = t.author_verified ?? t.verified;
+                const likes = t.likes ?? 0;
+                const retweets = t.retweets ?? 0;
+                const replies = t.replies ?? t.reply ?? 0;
                 card.innerHTML = `
                     <div class="tweet-header">
-                        <span class="username">@${t.username}</span>
-                        ${t.author_verified ? '<span class="verified">✓</span>' : ''}
+                        <span class="username">@${t.username || 'unknown'}</span>
+                        ${verified ? '<span class="verified">✓</span>' : ''}
                     </div>
-                    <div class="tweet-text">${t.text}</div>
+                    <div class="tweet-text">${t.text || ''}</div>
                     <div class="engagement">
-                        ❤️ ${t.likes} | 🔄 ${t.retweets} | 💬 ${t.replies}
+                        ❤️ ${likes} | 🔄 ${retweets} | 💬 ${replies}
                     </div>
                     <div style="font-size:11px; margin-top:5px; color:#666;">
-                        Estado: ${t.estado}
+                        Estado: ${t.estado || 'N/A'}
                     </div>
                 `;
                 container.appendChild(card);
@@ -198,17 +227,21 @@
             const container = document.getElementById("results");
             const card = document.createElement("div");
             card.className = "tweet-card";
+            const likes = tweet.likes ?? 0;
+            const retweets = tweet.retweets ?? 0;
+            const replies = tweet.replies ?? tweet.reply ?? 0;
+            const engagement = tweet.engagement ?? (likes + retweets + replies);
             card.innerHTML = `
                 <div class="tweet-header">
-                    <span class="username">@${tweet.username}</span>
+                    <span class="username">@${tweet.username || 'unknown'}</span>
                     ${tweet.verified ? '<span class="verified">✓</span>' : ''}
                 </div>
-                <div class="tweet-text">${tweet.text}</div>
+                <div class="tweet-text">${tweet.text || ''}</div>
                 <div class="engagement">
-                    ❤️ ${tweet.likes} | 🔄 ${tweet.retweets} | 💬 ${tweet.engagement - tweet.likes - tweet.retweets}
+                    ❤️ ${likes} | 🔄 ${retweets} | 💬 ${replies}
                 </div>
                 <div style="font-size:11px; margin-top:5px; color:#666;">
-                    Estado: ${estado}
+                    Estado: ${estado || 'N/A'}
                 </div>
             `;
             container.appendChild(card);
