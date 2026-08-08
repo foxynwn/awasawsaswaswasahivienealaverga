@@ -2,11 +2,12 @@
   "manifest_version": 3,
   "name": "X Region Blocker MX",
   "version": "1.0.0",
-  "description": "Bloquea y filtra tweets por región geográfica en México",
+  "description": "Bloquea y filtra tweets por región geográfica en México - Detecta ubicación de cuentas y dispositivos",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "https://twitter.com/*",
@@ -14,6 +15,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
+    "default_title": "X Region Blocker MX",
     "default_icons": {
       "16": "icons/icon-16.png",
       "48": "icons/icon-48.png",
