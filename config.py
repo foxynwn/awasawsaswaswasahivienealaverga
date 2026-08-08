@@ -25,8 +25,7 @@ while True:
     ACCOUNTS.append({
         "username": user,
         "password": os.getenv(f"ACCOUNT{i}_PASS"),
-        "email": os.getenv(f"ACCOUNT{i}_EMAIL_RECOVERY"),
-        "email_password": os.getenv(f"ACCOUNT{i}_EMAIL_PASS"),
+        "email": user,
     })
     i += 1
 
