@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Region Blocker MX</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 X Region Blocker</h1>
+            <span class="version">v1.0</span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="filter">Filtro</button>
+            <button class="tab-btn" data-tab="detector">Detector</button>
+            <button class="tab-btn" data-tab="stats">Estadísticas</button>
+            <button class="tab-btn" data-tab="settings">Ajustes</button>
+        </div>
+
+        <!-- TAB: FILTRO -->
+        <div id="filter" class="tab-content active">
+            <div class="section">
+                <label class="label">Estados a Permitir:</label>
+                <div id="states-grid" class="states-grid"></div>
+            </div>
+
+            <div class="section">
+                <label class="label">Palabras Clave (filtro adicional):</label>
+                <textarea id="keywords-input" placeholder="Separa con comas: delito, robo, violencia"></textarea>
+            </div>
+
+            <div class="section">
+                <label class="checkbox">
+                    <input type="checkbox" id="verified-only">
+                    <span>Solo cuentas verificadas</span>
+                </label>
+            </div>
+
+            <div class="section">
+                <label class="label">Engagement Mínimo:</label>
+                <div class="input-group">
+                    <input type="number" id="min-likes" value="0" placeholder="Likes">
+                    <input type="number" id="min-retweets" value="0" placeholder="Retweets">
+                </div>
+            </div>
+
+            <button id="save-filter" class="btn btn-primary">💾 Guardar Filtros</button>
+        </div>
+
+        <!-- TAB: DETECTOR -->
+        <div id="detector" class="tab-content">
+            <div class="section">
+                <h3>📍 Información de Cuenta</h3>
+                <div id="account-info" class="info-box">
+                    <p class="status">Cargando información...</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🌍 Ubicación Estimada</h3>
+                <div id="location-info" class="info-box">
+                    <p id="location-status">Analizando...</p>
+                    <canvas id="location-canvas" width="200" height="200" style="margin-top: 8px; display: none;"></canvas>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>📱 Información del Dispositivo</h3>
+                <div id="device-info" class="info-box">
+                    <p id="device-status">Detectando...</p>
+                </div>
+            </div>
+
+            <button id="refresh-detector" class="btn btn-secondary">🔄 Actualizar</button>
+        </div>
+
+        <!-- TAB: STATS -->
+        <div id="stats" class="tab-content">
+            <div class="section">
+                <h3>📊 Estadísticas de Sesión</h3>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-tweets">0</div>
+                        <div class="stat-label">Tweets Bloqueados</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-allowed">0</div>
+                        <div class="stat-label">Tweets Permitidos</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="stat-filtered">0</div>
+                        <div class="stat-label">Por Palabras Clave</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🗺️ Tweets por Estado</h3>
+                <div id="state-stats" class="state-stats"></div>
+            </div>
+
+            <button id="export-stats" class="btn btn-secondary">📥 Exportar Datos</button>
+            <button id="clear-stats" class="btn btn-danger">🗑️ Limpiar Todo</button>
+        </div>
+
+        <!-- TAB: SETTINGS -->
+        <div id="settings" class="tab-content">
+            <div class="section">
+                <h3>⚙️ Configuración</h3>
+                
+                <label class="checkbox">
+                    <input type="checkbox" id="auto-block">
+                    <span>Bloqueo automático activado</span>
+                </label>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="show-highlights">
+                    <span>Destacar tweets encontrados</span>
+                </label>
+
+                <label class="checkbox">
+                    <input type="checkbox" id="notify-blocked">
+                    <span>Notificar tweets bloqueados</span>
+                </label>
+            </div>
+
+            <div class="section">
+                <label class="label">Retención de datos (horas):</label>
+                <input type="number" id="retention" value="24" min="1" max="168">
+            </div>
+
+            <div class="section">
+                <h3>💾 Importar/Exportar</h3>
+                <input type="file" id="import-config" accept=".json" style="display: none;">
+                <button id="import-btn" class="btn btn-secondary" style="width: 100%;">📤 Importar Configuración</button>
+                <button id="export-config" class="btn btn-secondary" style="width: 100%; margin-top: 4px;">📥 Exportar Configuración</button>
+            </div>
+
+            <button id="save-settings" class="btn btn-primary" style="margin-top: 12px;">💾 Guardar Ajustes</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
